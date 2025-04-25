@@ -30,4 +30,4 @@ REWARDS_RECIPIENT_ADDRESS=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 8. Choose a GPU setup in the marketplace and then click "Rent" on the machine you prefer. The more expensive it is, the more powerful it usually is.
 ![image](./assets/rent_gpu.png)
 
-9. Congratulations! Once your instance is up, the INFINITY miner will start automatically using the values you provided. Happy mining!
+9. ✅ Congratulations! Once your instance is up, the INFINITY miner will start automatically using the values you provided. Happy mining!
