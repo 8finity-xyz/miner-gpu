@@ -98,7 +98,7 @@ The container already includes everything needed.
 
    # Clone and build:
    git clone https://github.com/8finity-xyz/miner-gpu.git
-   cd pow
+   cd miner-gpu
    make clean && make
 
    # Potentially you might wanna use this line. If Nvidia and OpenCL aren't befrending
