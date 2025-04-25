@@ -6,7 +6,7 @@
 ![image](./assets/edit_image.png)
 4. Scroll down to Environment Variables, then click "Batch Paste".
 ![image](./assets/batch_paste.png)
-5. Paste your configuration. **Remember, you should have enough $S balance to start mining!**
+5. Paste your configuration. **🚨 Remember, you should have enough $S balance to start mining! 🚨**
 ```
 # You can get your own private node or leave these values 
 INFINITY_RPC=https://rpc.soniclabs.com
@@ -24,7 +24,7 @@ REWARDS_RECIPIENT_ADDRESS=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 6. Click "Save" at the bottom of the page.
 ![image](./assets/save_envs.png)
 
-7. Scroll down, change template mode to "Private" 🚨 and click "Create & Use". 
+7. Scroll down, **🚨 change template mode to "Private" 🚨** and click "Create & Use". 
 ![image](./assets/private_save.png)
 
 8. Choose a GPU setup in the marketplace and then click "Rent" on the machine you prefer. The more expensive it is, the more powerful it usually is.
