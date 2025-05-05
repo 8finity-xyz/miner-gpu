@@ -97,7 +97,7 @@ The container already includes everything needed.
    pip3 install pybind11 safe-pysha3 ecdsa web3 coincurve websocket-client websockets dotenv 
 
    # Clone and build:
-   git clone https://github.com/infinity88888888/gpu-miner.git
+   git clone https://github.com/8finity-xyz/miner-gpu.git
    cd miner-gpu
    make clean && make
 
