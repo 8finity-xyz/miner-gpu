@@ -20,10 +20,10 @@ from config import (
     MASTER_PKEY,
     REWARDS_RECIPIENT_ADDRESS,
     INFINITY_RPC,
-    INFINITY_WS,
+    INFINITY_WS
 )
 from utils import create_signature_ab
-
+import verbose
 logger = logging.getLogger("miner")
 
 """
@@ -40,7 +40,6 @@ SESSION = requests.Session()
 
     private_key_hex -- hex no '0x'
 """
-
 
 def get_secp256k1_pub(private_key_hex):
     sk = SigningKey.from_string(string=bytes.fromhex(private_key_hex), curve=SECP256k1)
@@ -185,7 +184,13 @@ def get_essential_state_multicall(master_address, pow_address):
     if result.status_code != 200:
         return None
 
-    res = json.loads(result.text)
+    try:
+        res = json.loads(result.text)
+    except json.JSONDecodeError:
+        logger.warning("[POLLING] RPC provider returned an invalid JSON response")
+        return None
+    
+
     ret = {
         "master_nonce": None,
         "eth_feeHistory": None,
@@ -215,7 +220,10 @@ def get_essential_state_multicall(master_address, pow_address):
         or (ret["privateKeyA"] == None)
         or (ret["difficulty"] == None)
         or (ret["problemNonce"] == None)
+        or (ret["balance"] == None)
+        or (ret["sonic_balance"] == None)
     ):
+        logger.warning("[POLLING] RPC provider returned an incomplete response")
         return None
     else:
         return ret
@@ -245,8 +253,11 @@ def mine_wagmi_magic_xor(strPublicKey, strMagicXorDifficulty):
         verboseStdOut=PROFANITY2_VERBOSE_FLAG,
     )
 
-    if "FAIL" in result:
-        logger.warning("[PROFANITY2] generation failed")
+    if result is None:
+        logger.warning("[PROFANITY2] generation failed on the OpenCL side")
+        return None
+    elif "FAIL" in result:
+        logger.warning("[PROFANITY2] generation failed on the OpenCL side")
         return None
     else:
         return "0x" + result
@@ -428,6 +439,27 @@ def mine_and_submit(el_problemo, chain_data_latest):
     2) Submit transaction.
     """
     try:
+        # validate input
+        if el_problemo is None or chain_data_latest is None:
+            logger.warning("[MINER] Invalid input received, probably rpc provider issue")
+            return
+
+        if "privateKeyA" not in el_problemo or "difficulty" not in el_problemo:
+            logger.warning("[MINER] Missing required keys in problem data")
+            return
+        
+        if el_problemo["privateKeyA"] is None or el_problemo["difficulty"] is None:
+            logger.warning("[MINER] Missing required keys in problem data")
+            return
+        
+        if not isinstance(el_problemo["privateKeyA"], str) or not isinstance(el_problemo["difficulty"], str):
+            logger.warning("[MINER] Invalid data types in problem data")
+            return
+        
+        if not "0x" in el_problemo["privateKeyA"] or not "0x" in el_problemo["difficulty"]:
+            logger.warning("[MINER] Invalid hex format in problem data")
+            return
+
         logger.debug(
             f"[MINER][{time.time():.3f}] STARTED for pkeyA: {el_problemo['privateKeyA']}"
         )
@@ -436,6 +468,10 @@ def mine_and_submit(el_problemo, chain_data_latest):
             strPublicKey=get_secp256k1_pub(el_problemo["privateKeyA"][2:]),
             strMagicXorDifficulty=el_problemo["difficulty"][2:],
         )
+
+        if private_key_b is None:
+            logger.warning("[MINER] OpenCL side failed to generate private key B")
+            return
 
         logger.debug(
             f"[MINER][{time.time():.3f}] Obtained privateKeyB: {private_key_b}"
@@ -550,6 +586,10 @@ def poll_state_periodically(poll_interval=0.5):
                 master_address=MASTER_ADDRESS, pow_address=POW_CONTRACT
             )
 
+            if polled_data is None:
+                logger.warning("[POLLING] RPC provider returned an error")
+                continue
+
             logger.debug(f"[POLLING[{time.time():.3f}] Obtained State:")
             logger.debug(f"[POLLING] master_nonce: {polled_data['master_nonce']}")
             logger.debug(f"[POLLING] privateKeyA: {polled_data['privateKeyA']}")
@@ -566,70 +606,23 @@ def poll_state_periodically(poll_interval=0.5):
 
         except Exception as e:
             logger.warning("[POLLING] Exception during polling:" + str(e))
+            logger.warning("Most likely reason is that rpc provider has returned an error")
 
         sleep_to_next_multiple(poll_interval)
 
 
-def _diff_to_iter(hex_string):
-    if hex_string == "NaN":
-        return "NaN"
-    hex_string = hex_string[2:]
-    leading_zeros = 0
-    for c in hex_string:
-        if c == "0":
-            leading_zeros += 1
-        else:
-            break
-
-    # If all 40 characters are '0', there's no non-zero character
-    if leading_zeros == 40:
-        first_non_zero = None
-    else:
-        first_non_zero = int("0x" + hex_string[leading_zeros], 16)
-
-    iters = 16 ** (leading_zeros) * 16 ** ((0xF - first_non_zero) / 0xF)
-
-    if iters < 1_000_000:
-        return str(int(iters))
-    elif iters < 1_000_000_000:
-        return f"{iters / 1_000_000:.2f} M"
-    else:
-        return f"{iters / 1_000_000_000:.2f} B"
-
-
-"""
-    Print all stats in CLI
-    and refresh them in semi-real-time
-"""
-MINING_STATS = {
-    "tx_ok": 0,
-    "epochs_elapsed": -1,
-    "last_epoch": None,
-    "curr_sub_per_epoch": 0,
-    "sub_per_epoch_arr": [],
-    "last_tx_hash": None,
-    "last_inf_balance_time": time.time(),
-    "last_inf_balance": None,
-    "last_inf_speed": "NaN",
-    "last_sonic_balance": None,
-    "last_sonic_speed": "NaN",
-    "last_tx_hash": "NaN",
-}
-
-
-def _safe_cast(d, field):
-    if field not in d:
-        if field in ["sonic_balance", "balance"]:
-            return 0.0
-        else:
-            return "NaN"
-    else:
-        return d[field]
+def whats_popin(last_poll_data, last_problem):
+    print()
+    print(f"                   [MINING STATS]")
+    print(f"[INFINITY BALANCE]:  {last_poll_data.get('balance', 0):,.0f} $8")
+    print(f"[SONIC BALANCE]:     {last_poll_data.get('sonic_balance', 0):.2f} $S")
+    print(f"[CURRENT $8 HASHRATE]:  {verbose.diff_to_iter(last_problem.get('difficulty', 'NaN'))}    (this is the difficulty of the problem)")
+    print(verbose.get_disclaimer(last_problem.get('difficulty', 'NaN')))
+    print()
 
 
 def clean_opencl_cache():
     os.system("rm -f cache-opencl.255.*")
-
 
 """
     Main Loop
@@ -648,7 +641,6 @@ def clean_opencl_cache():
 
 MINING_PROCESS = None
 
-
 def main_loop():
     global MINING_PROCESS
     manager = multiprocessing.Manager()
@@ -660,13 +652,11 @@ def main_loop():
     last_problem = None
     pkey_in_work = None
     actually_latest_pkey = None
-    last_log = 0
+    last_log = time.time() - CLI_LOG_SECONDS_STEP + 1
 
-    refresh_cli_counter = 0
     logger.debug(f"[MAIN-LOOP][{time.time():.3f}] STARTING")
 
     while True:
-        refresh_cli_counter += 1
         while not POLL_RESULTS_QUEUE.empty():
             last_poll_data = POLL_RESULTS_QUEUE.get()
 
@@ -707,12 +697,13 @@ def main_loop():
                     last_poll_data["privateKeyA"] = last_problem["privateKeyA"]
                     last_poll_data["problemNonce"] = last_problem["problemNonce"]
                     last_poll_data["difficulty"] = last_problem["difficulty"]
+
         """
             Check on our mate - miner
         """
         if MINING_PROCESS and not MINING_PROCESS.is_alive():
             pkey_in_work = None
-            logger.debug(f"[MAIN-LOOP][{time.time():.3f}] MINER BROSKIII HAS DIEEDDD")
+            logger.debug(f"[MAIN-LOOP][{time.time():.3f}] Miner process has stopped, it might have been graceful stop or error")
 
         if (last_poll_data and last_problem) and (actually_latest_pkey != pkey_in_work):
             logger.debug(
@@ -741,13 +732,11 @@ def main_loop():
 
             pkey_in_work = actually_latest_pkey
 
-        if (time.time() - last_log) > 10:
+        if (time.time() - last_log) > CLI_LOG_SECONDS_STEP:
             try:
-                logger.info(
-                    f"INFINITY balance: {_safe_cast(last_poll_data, 'balance'):,.0f} $8, "
-                    f"S balance: {_safe_cast(last_poll_data, 'sonic_balance'):.2f} $S"
-                )
                 last_log = time.time()
+                whats_popin(last_poll_data, last_problem)
+                clean_opencl_cache()
             except Exception:
                 pass
 
@@ -761,6 +750,7 @@ def main_loop():
     3) main loop managing them all (and launching miner)
 """
 if __name__ == "__main__":
+    verbose.print_strat_banner()
     clean_opencl_cache()
     ws_thread = threading.Thread(
         target=listen_for_problems,
