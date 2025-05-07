@@ -42,20 +42,25 @@ def get_disclaimer(difficulty_string):
     if iter == "NaN":
         return "Could not calculate hashrate"
     elif iter < 1_000_000:
-        return """Difficulty is VERY low, expect miner to find solution in sub-second
+        return """Difficulty is VERY low, expect miner to find a solution in sub-second
 Feel free to use nvidia-smi or analogue to check the GPU load"""
     elif iter < 1_000_000_000:
-        return """Difficulty is QUITE low, expect miner to find solution in one second on one RTX-4090
+        return """Difficulty is QUITE low, expect miner to find a solution in one second on one RTX-4090
 Feel free to use nvidia-smi or analogue to check the GPU load"""
     elif iter < 10_000_000_000:
-        return """Difficulty is MEDIUM, expect miner to find solution in 10 seconds on one RTX-4090
+        return """Difficulty is MEDIUM, expect miner to find a solution in 10 seconds on one RTX-4090
 Feel free to use nvidia-smi or analogue to check the GPU load"""
     elif iter < 100_000_000_000:
-        return """Difficulty is MODERATELY HIGH, expect miner to find solution in 100 seconds on one RTX-4090
+        return """Difficulty is MODERATELY HIGH, expect miner to find a solution in 100 seconds on one RTX-4090
 Time will scale linearly down with more GPUs
 Feel free to use nvidia-smi or analogue to check the GPU load"""
+    elif iter < 1_000_000_000_000:
+        return """Difficulty is VERY HIGH, expect miner to find a solution in MORE than 100 seconds on one RTX-4090
+Time will scale linearly down with more GPUs
+and don't worry if you don't see submissions, you are on the uncharted territory of maximum GPU performace
+Feel free to use nvidia-smi or analogue to check the GPU load"""
     else:
-        return """Difficulty is VERY HIGH, expect miner to find work more than 100 seconds for ONE solution, on one RTX-4090
+        return """Difficulty is EXTREMELY HIGH, expect miner to find a solution in MORE than 1000 seconds on one RTX-4090
 Time will scale linearly down with more GPUs
 and don't worry if you don't see submissions, you are on the uncharted territory of maximum GPU performace
 Feel free to use nvidia-smi or analogue to check the GPU load"""
